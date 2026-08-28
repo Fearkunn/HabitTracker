@@ -19,6 +19,11 @@ struct HomeView: View {
 
     @State private var activeError: HabitError?
 
+    /// Non-nil while the edit form is up, holding the habit being edited.
+    @State private var habitBeingEdited: Habit?
+
+    @State private var isAddingHabit = false
+
     var body: some View {
         NavigationStack {
             Group {
@@ -29,6 +34,15 @@ struct HomeView: View {
                 }
             }
             .navigationTitle("Habits")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        isAddingHabit = true
+                    } label: {
+                        Label("Add Habit", systemImage: "plus")
+                    }
+                }
+            }
             .alert(isPresented: isShowingError, error: activeError) { _ in
                 Button("OK", role: .cancel) { activeError = nil }
             } message: { error in
@@ -36,6 +50,14 @@ struct HomeView: View {
                     Text(failureReason)
                 }
             }
+            .sheet(item: $habitBeingEdited) { habit in
+                AddEditHabitView(habit: habit)
+            }
+        }
+        // Kept on a different view from the edit sheet so the two presentations
+        // stay independent.
+        .sheet(isPresented: $isAddingHabit) {
+            AddEditHabitView()
         }
     }
 
@@ -53,22 +75,30 @@ struct HomeView: View {
             Label("No Habits Yet", systemImage: "checklist")
         } description: {
             Text("Habits you add will show up here.")
+        } actions: {
+            Button("Add Habit") { isAddingHabit = true }
         }
     }
 
     private func habitRow(for habit: Habit) -> some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(habit.name)
-                    .strikethrough(habit.isDoneToday, color: .secondary)
-                    .foregroundStyle(habit.isDoneToday ? .secondary : .primary)
+            Button {
+                habitBeingEdited = habit
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(habit.name)
+                        .strikethrough(habit.isDoneToday, color: .secondary)
+                        .foregroundStyle(habit.isDoneToday ? .secondary : .primary)
 
-                Text(habit.frequency)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Text(habit.frequency)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(.rect)
             }
-
-            Spacer(minLength: 12)
+            .buttonStyle(.plain)
+            .accessibilityHint(Text("Opens this habit for editing"))
 
             Button {
                 toggleDone(habit)

@@ -53,10 +53,62 @@ final class HabitViewModel {
         try save { .saveFailed(underlying: $0) }
     }
 
-    /// Flips whether the habit is marked done for the current day.
+    /// Flips whether the habit is marked done for the current day by adding or
+    /// removing today's entry in its history.
     func toggleDone(_ habit: Habit) throws(HabitError) {
-        habit.isDoneToday.toggle()
+        let calendar = Calendar.current
+
+        if habit.isDoneToday {
+            habit.completedDates.removeAll(where: calendar.isDateInToday)
+        } else {
+            habit.completedDates.append(.now)
+        }
+
         try save { .saveFailed(underlying: $0) }
+    }
+
+    /// The number of consecutive days the habit has been completed, counting
+    /// back from its most recent completion.
+    ///
+    /// A streak stays alive while the last completion is today or yesterday —
+    /// yesterday keeps counting so a habit not yet done today still shows the
+    /// run it's about to extend. Anything older reads as broken and returns 0,
+    /// as does a habit with no completions at all.
+    func currentStreak(for habit: Habit) -> Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+
+        // Collapse to distinct days, most recent first: two completions on the
+        // same day are one day of streak.
+        let completionDays = Set(habit.completedDates.map(calendar.startOfDay(for:)))
+            .sorted(by: >)
+
+        guard let mostRecentDay = completionDays.first,
+              let daysSinceMostRecent = calendar.dateComponents(
+                [.day], from: mostRecentDay, to: today
+              ).day,
+              // A negative gap means a completion dated in the future, which
+              // shouldn't happen but must not count as a live streak.
+              (0...1).contains(daysSinceMostRecent)
+        else {
+            return 0
+        }
+
+        var streak = 1
+        var previousDay = mostRecentDay
+
+        for day in completionDays.dropFirst() {
+            guard let gap = calendar.dateComponents([.day], from: day, to: previousDay).day,
+                  gap == 1
+            else {
+                break
+            }
+
+            streak += 1
+            previousDay = day
+        }
+
+        return streak
     }
 
     /// Removes the habit from the store.

@@ -28,11 +28,22 @@ final class Habit {
     /// How often the habit should be performed, e.g. "Daily".
     var frequency: String
 
-    /// Whether the habit has been marked done for the current day.
-    var isDoneToday: Bool
-
     /// When the habit was first created.
     var createdAt: Date
+
+    /// Every moment the habit has been marked done, oldest first.
+    ///
+    /// At most one entry is recorded per calendar day. This is the single
+    /// source of truth for whether the habit is done; see `isDoneToday`.
+    var completedDates: [Date]
+
+    /// Whether the habit has been marked done for the current day.
+    ///
+    /// Derived rather than stored so it rolls over at midnight on its own —
+    /// a stored flag would keep reading `true` the day after a completion.
+    var isDoneToday: Bool {
+        completedDates.contains(where: Calendar.current.isDateInToday)
+    }
 
     // MARK: - Initializers
 
@@ -40,13 +51,13 @@ final class Habit {
         id: UUID = UUID(),
         name: String,
         frequency: String = Habit.defaultFrequency,
-        isDoneToday: Bool = false,
-        createdAt: Date = .now
+        createdAt: Date = .now,
+        completedDates: [Date] = []
     ) {
         self.id = id
         self.name = name
         self.frequency = frequency
-        self.isDoneToday = isDoneToday
         self.createdAt = createdAt
+        self.completedDates = completedDates
     }
 }
